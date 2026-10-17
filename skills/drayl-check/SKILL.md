@@ -4,7 +4,7 @@ description: Run a live check (acceptance run, dogfood, benchmark, demo, anythin
 license: MIT
 metadata:
   pack: drayl
-  version: 1.1.1
+  version: 1.1.2
 ---
 
 # Live checks with one honest result
@@ -88,7 +88,15 @@ or `python3`, whichever is Python 3.9 or newer.
      (`-dirty` if tracked files changed).
 
 4. Read the last line: `DRAYL RESULT PASS|FAIL|INTERRUPTED ...`. Exit
-   codes: 0 PASS, 1 FAIL, 3 INTERRUPTED, 2 usage error (no result).
+   codes:
+
+   | Code | Meaning |
+   | --- | --- |
+   | 0 | PASS |
+   | 1 | FAIL |
+   | 2 | Usage error, no result: bad arguments, a hands-off run that cannot watch real input, or the last run of this name still RUNNING on another host |
+   | 3 | INTERRUPTED |
+   | 4 | Lock collision: this check name is already running here. No new result is written |
 
 The runner writes `.drayl/runs/<name>.json` after every step and appends
 each final result to `.drayl/history.jsonl`. Keep `.drayl/` out of git.
@@ -98,6 +106,7 @@ Other runner behavior worth knowing:
 - One run per name at a time. A second run with the same name is refused
   while the first runner is alive (an OS file lock on
   `.drayl/locks/<name>.lock`, released by the OS if the runner dies).
+  That refusal exits 4. It is not a usage error and not a result.
 - A RUNNING state written on another host is never touched from here;
   the runner refuses to start that check until it is resolved on that
   host or the state file is deleted.
