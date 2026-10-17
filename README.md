@@ -54,7 +54,7 @@ hands-off runs yet.
 1. Get the skills into your repository:
 
    ```bash
-   git clone --depth 1 https://github.com/mxdsl/drayl /tmp/drayl
+   git clone --depth 1 https://github.com/mxdsl/drayl-skills /tmp/drayl
    mkdir -p .agents/skills
    cp -r /tmp/drayl/skills/drayl-* .agents/skills/
    ```
@@ -62,7 +62,7 @@ hands-off runs yet.
    PowerShell:
 
    ```powershell
-   git clone --depth 1 https://github.com/mxdsl/drayl $env:TEMP\drayl
+   git clone --depth 1 https://github.com/mxdsl/drayl-skills $env:TEMP\drayl
    New-Item -ItemType Directory -Force .agents\skills | Out-Null
    Copy-Item -Recurse $env:TEMP\drayl\skills\drayl-* .agents\skills\
    ```
