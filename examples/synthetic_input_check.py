@@ -5,7 +5,8 @@
 
 Its own synthetic mouse moves and Shift presses must not interrupt the run;
 touching the real mouse or keyboard while it runs must (INTERRUPTED).
-Windows and macOS. Moves the cursor by 1 px back and forth, presses Shift.
+Windows and macOS. On Linux it exits 2 with a message and does not drive
+input. Moves the cursor by 1 px back and forth, presses Shift.
 """
 import ctypes
 import ctypes.util
@@ -77,7 +78,15 @@ def mac_driver():
 
 
 def main():
-    move, shift = windows_driver() if platform.system() == "Windows" else mac_driver()
+    system = platform.system()
+    if system == "Windows":
+        move, shift = windows_driver()
+    elif system == "Darwin":
+        move, shift = mac_driver()
+    else:
+        print("synthetic_input_check: hands-off synthetic input is Windows and macOS only (this is %s)" % system,
+              file=sys.stderr)
+        return 2
     for step in ("mouse jiggle", "shift presses", "mixed"):
         end = time.time() + SECONDS_PER_STEP
         dx = 1
@@ -89,7 +98,8 @@ def main():
                 shift()
             time.sleep(0.05)
         print("DRAYL-STEP PASS %s" % step, flush=True)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

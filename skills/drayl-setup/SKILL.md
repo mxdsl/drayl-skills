@@ -4,7 +4,7 @@ description: Set up or update the Drayl workflow (drayl-pr and drayl-check) for 
 license: MIT
 metadata:
   pack: drayl
-  version: 1.1.0
+  version: 1.1.1
 ---
 
 # Drayl setup: an interview, then one reviewed write
@@ -123,8 +123,10 @@ not the yes; the yes is to the shown draft.
 
 ## 5. Write
 
-1. `AGENTS.md`: replace everything between `<!-- drayl:begin` and
-   `<!-- drayl:end -->`, or append the section if there is none. Create
+1. `AGENTS.md`: the filled template includes its `<!-- drayl:begin` and
+   `<!-- drayl:end -->` lines. If those markers are already in `AGENTS.md`,
+   replace from the begin line through the end line with the filled
+   template. If they are not, append the filled template. Create
    `AGENTS.md` if it does not exist. Touch nothing outside the markers.
 2. Skills: copy the three folders `drayl-setup`, `drayl-pr`, `drayl-check`
    from the Drayl source (the folder this skill was loaded from, or a clone
@@ -162,7 +164,8 @@ not the yes; the yes is to the shown draft.
   python .agents/skills/drayl-check/scripts/drayl_check.py run --name drayl-selftest --steps 1 --abort-key none -- python -c "print('DRAYL-STEP PASS selftest')"
   ```
 
-  (`py -3` instead of `python` on Windows if needed.)
+  (`python3` where `python` is missing or is not Python 3; `py -3` on
+  Windows if needed.)
 - `gh auth status` succeeds.
 - Re-read the written section from disk and confirm it matches what the
   user approved.
