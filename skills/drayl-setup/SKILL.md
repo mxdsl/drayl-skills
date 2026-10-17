@@ -110,9 +110,10 @@ Ask: write it? Change something? Write only after a clear yes.
    there, never in this stub.
    ```
 
-   Which agents need a stub is listed in the README table "Where agents
-   look for skills". When in doubt, check the agent's documentation; a
-   stub never hurts.
+   Droid, Codex, Cursor and Gemini CLI read `.agents/skills/` themselves;
+   do not give them a stub, or the skill shows up twice. Of the agents in
+   the README table "Where agents look for skills", only Claude Code needs
+   one. For an agent not in that table, check its documentation first.
 4. `CLAUDE.md`: if Claude Code is used and `CLAUDE.md` does not import
    `AGENTS.md`, add the line `@AGENTS.md` (keep any existing content).
 5. `.gitignore`: add `.drayl/` (runner state is local).

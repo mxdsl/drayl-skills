@@ -83,11 +83,11 @@ of the rules even when no skill is loaded.
 
 | Agent | Reads `.agents/skills/` | Otherwise |
 | --- | --- | --- |
-| Droid (Factory) | yes (documented) | `.factory/skills/` |
+| Droid (Factory) | yes (documented and tested) | `.factory/skills/` |
 | Claude Code | no | stub in `.claude/skills/<skill>/SKILL.md` |
-| Codex | to be verified | |
-| Cursor | to be verified | |
-| Gemini CLI | to be verified | |
+| Codex | yes (tested with codex-cli 0.153) | |
+| Cursor | yes (documented) | `.cursor/skills/` |
+| Gemini CLI | yes (documented) | `.gemini/skills/` |
 
 `drayl-setup` writes a stub for every agent in use that does not read
 `.agents/skills/`. A stub only points to the real skill, so there is one
