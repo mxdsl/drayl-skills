@@ -4,7 +4,7 @@ description: Babysit your own GitHub pull request until it is genuinely done - C
 license: MIT
 metadata:
   pack: drayl
-  version: 1.1.1
+  version: 1.1.2
 ---
 
 # A PR is not done when CI turns green
@@ -168,9 +168,19 @@ Stacked PRs (a PR whose base is another PR's branch) land one at a time:
 
 1. Merge the parent into the default branch.
 2. Retarget the child: `gh pr edit <child> -R <repo> --base <default-branch>`.
-3. Merge the default branch into the child branch (merge, never rebase or
+   GitHub automatically retargets the child PR to `main` (the default
+   branch) when the parent branch is deleted, so this may already have
+   happened. Confirm the base before the next step.
+3. Merge the default branch into the child branch (merge, never
    force-push) and push; CI runs again.
 4. Babysit the child from step 1, then merge it.
+
+After a squash-merge of the parent, merging `main` into the child often
+conflicts: the child still contains the parent's commits, and the squash
+commit on `main` is a different commit with the same changes. Use
+`git rebase --onto main <old-parent-tip>` (`<old-parent-tip>` is the parent
+branch tip before the squash; use the default branch name if it is not
+`main`) or resolve the conflicts carefully.
 
 Never merge a child into its parent branch: that lands nowhere.
 

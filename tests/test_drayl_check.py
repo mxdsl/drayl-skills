@@ -126,7 +126,8 @@ class DraylCheckTest(unittest.TestCase):
             p = subprocess.run([sys.executable, str(SCRIPT), "run", "--name", "live", "--steps", "1", "--abort-key", "none",
                                 "--state-dir", str(self.state), "--"] + child("print('DRAYL-STEP PASS a')"),
                                capture_output=True, text=True, timeout=30)
-            self.assertEqual(p.returncode, 2)
+            self.assertEqual(p.returncode, load_module().EXIT_LOCK)
+            self.assertNotEqual(p.returncode, 2)
             self.assertIn("already running", p.stderr)
             self.assertIn(str(os.getpid()), p.stderr)
         finally:
@@ -181,7 +182,7 @@ class DraylCheckTest(unittest.TestCase):
             p = subprocess.run([sys.executable, str(SCRIPT), "run", "--name", "busy", "--steps", "1", "--abort-key", "none",
                                 "--state-dir", str(self.state), "--"] + child("print('DRAYL-STEP PASS a')"),
                                capture_output=True, text=True, timeout=30)
-            self.assertEqual(p.returncode, 2)
+            self.assertEqual(p.returncode, load_module().EXIT_LOCK)
             self.assertIn("already running", p.stderr)
         finally:
             out, _ = first.communicate(timeout=30)
@@ -256,6 +257,25 @@ class DraylCheckTest(unittest.TestCase):
         self.assertEqual(p.returncode, 3)
         self.assertEqual(s["result"], "INTERRUPTED")
         self.assertIn("reported every step but exited 4", s["reason"])
+
+    def test_lock_collision_returns_dedicated_exit_code(self):
+        mod = load_module()
+        self.assertEqual(mod.EXIT_LOCK, 4)
+        self.assertNotIn(mod.EXIT_LOCK, (0, 1, 2, 3))
+        lock = mod.NameLock(self.state, "held")
+        self.assertTrue(lock.try_acquire())
+        try:
+            lock.write_owner()
+            p = subprocess.run([sys.executable, str(SCRIPT), "run", "--name", "held", "--steps", "1",
+                                "--abort-key", "none", "--state-dir", str(self.state), "--"] + child(
+                                    "print('DRAYL-STEP PASS a')"),
+                               capture_output=True, text=True, timeout=30)
+            self.assertEqual(p.returncode, mod.EXIT_LOCK)
+            self.assertNotEqual(p.returncode, 2)
+            self.assertIn("already running", p.stderr)
+            self.assertFalse((self.state / "runs" / "held.json").exists())
+        finally:
+            lock.release()
 
     def test_negative_timeout_is_usage_error(self):
         p = subprocess.run([sys.executable, str(SCRIPT), "run", "--name", "neg", "--steps", "1",

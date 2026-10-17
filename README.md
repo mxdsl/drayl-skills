@@ -54,7 +54,7 @@ What Drayl does not do:
 
 ## The skills
 
-Three skills, one pack (1.1.1). Changes: [CHANGELOG.md](CHANGELOG.md).
+Three skills, one pack (1.1.2). Changes: [CHANGELOG.md](CHANGELOG.md).
 
 | Skill | What it does |
 | --- | --- |
@@ -102,6 +102,16 @@ flag on low-level hooks; macOS: the posting process id in an event tap)
 and interrupts the run on real input only. It refuses to start a
 hands-off run if it cannot watch real input. Linux is not supported for
 hands-off runs yet.
+
+Exit codes:
+
+| Code | Meaning |
+| --- | --- |
+| 0 | PASS |
+| 1 | FAIL |
+| 2 | Usage error, no result: bad arguments, a hands-off run that cannot watch real input, or the last run of this name still RUNNING on another host |
+| 3 | INTERRUPTED |
+| 4 | Lock collision: this check name is already running. No new result is written |
 
 ## Install
 
@@ -151,6 +161,16 @@ of the rules even when no skill is loaded.
 `drayl-setup` writes a stub for every agent in use that does not read
 `.agents/skills/`. A stub only points to the real skill, so there is one
 copy to maintain.
+
+## Updating
+
+Installed skills are a copy. To update them, either re-copy `skills/drayl-*`
+over `.agents/skills/` (the same commands as Install; replace the three
+folders) or re-run `drayl-setup`. A re-run shows the diff of the `AGENTS.md`
+section and writes only after a yes, and it copies the skills again.
+
+The pack version is `metadata.version` in the frontmatter of each
+`SKILL.md`. What changed is in [CHANGELOG.md](CHANGELOG.md).
 
 ## Why these rules
 

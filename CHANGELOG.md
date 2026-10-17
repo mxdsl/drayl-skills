@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.1.2
+
+- A check name that is already running exits 4 (lock collision), not 2.
+  Exit codes are 0 PASS, 1 FAIL, 2 usage, 3 INTERRUPTED, 4 lock collision,
+  documented in the README and in `drayl-check`.
+- README explains how to update an install: re-copy `skills/drayl-*` or
+  re-run `drayl-setup`. The version is the skill frontmatter; the notes
+  are this file.
+- `drayl-pr`: after a squash-merge of a stacked parent, merging `main`
+  into the child often conflicts (`git rebase --onto main <old-parent-tip>`
+  or resolve carefully). GitHub retargets the child to `main` when the
+  parent branch is deleted.
+- The macOS synthetic-input example `CFRelease`s every `CGEvent` it
+  creates, and the event source it creates.
+
 ## 1.1.1
 
 - Linux `os_version` is the distro from `/etc/os-release` plus the kernel

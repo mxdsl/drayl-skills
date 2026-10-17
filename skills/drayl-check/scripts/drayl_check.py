@@ -33,7 +33,9 @@ import time
 from pathlib import Path
 
 PASS, FAIL, INTERRUPTED = "PASS", "FAIL", "INTERRUPTED"
+# 0 PASS, 1 FAIL, 2 usage (no result), 3 INTERRUPTED, 4 lock collision (no result).
 EXIT = {PASS: 0, FAIL: 1, INTERRUPTED: 3}
+EXIT_LOCK = 4
 STEP_RE = re.compile(r"^DRAYL-STEP\s+(PASS|FAIL)\s+(.+?)(?:\s+--\s+(.*))?\s*$")
 NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 
@@ -689,7 +691,7 @@ def cmd_run(args) -> int:
         owner = lock.owner()
         print("drayl_check: %s is already running (host %s, pid %s)" % (args.name, owner.get("host"), owner.get("pid")),
               file=sys.stderr)
-        return 2
+        return EXIT_LOCK
     try:
         lock.write_owner()
         prev = read_json(state_dir / "runs" / (args.name + ".json"))
