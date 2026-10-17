@@ -54,7 +54,7 @@ What Drayl does not do:
 
 ## The skills
 
-Three skills, one pack:
+Three skills, one pack (1.1.1). Changes: [CHANGELOG.md](CHANGELOG.md).
 
 | Skill | What it does |
 | --- | --- |
@@ -83,11 +83,12 @@ names its last completed step. If the runner itself is killed, the next
 `status` reports that run as INTERRUPTED instead of forgetting it.
 
 Each run records the exact OS version with build (for example
-`Windows 11 25H2 10.0.26200.9711` or `macOS 26.6.2 (25G83)`). An OS
-update can flip a check without any change to your code, so when the OS
-changed since the last PASS or FAIL run of the same check on that machine,
-the runner says so and the older runs stop counting as a baseline. Drayl
-does not pin the OS: your users get the updates too.
+`Windows 11 25H2 10.0.26200.9711`, `macOS 26.6.2 (25G83)`, or
+`Ubuntu 24.04.5 LTS (kernel 6.8.0-45-generic)`). An OS update can flip a
+check without any change to your code, so when the OS changed since the
+last PASS or FAIL run of the same check on that machine, the runner says
+so and the older runs stop counting as a baseline. Drayl does not pin the
+OS: your users get the updates too.
 
 ```bash
 python skills/drayl-check/scripts/drayl_check.py run --name resize --steps 5 --hands-off -- ./check-resize.sh
@@ -104,9 +105,10 @@ hands-off runs yet.
 
 ## Install
 
-Requirements: Python 3.9 or newer for the runner, and the GitHub CLI `gh`
-2.50 or newer, logged in (`gh auth status`), for `drayl-pr`. Older `gh`
-versions lack `gh pr checks --json`.
+Requirements: Python 3.9 or newer for the runner (`python3` where `python`
+is missing or is not Python 3), and the GitHub CLI `gh` 2.50 or newer,
+logged in (`gh auth status`), for `drayl-pr`. Older `gh` versions lack
+`gh pr checks --json`.
 
 1. Get the skills into your repository:
 

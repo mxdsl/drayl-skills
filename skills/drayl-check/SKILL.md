@@ -4,7 +4,7 @@ description: Run a live check (acceptance run, dogfood, benchmark, demo, anythin
 license: MIT
 metadata:
   pack: drayl
-  version: 1.1.0
+  version: 1.1.1
 ---
 
 # Live checks with one honest result
@@ -42,7 +42,8 @@ not FAIL, unless a step already reported FAIL.
 
 The runner is `scripts/drayl_check.py` next to this file (Python 3.9+,
 standard library only, Windows, macOS, Linux). With the default install
-that is `.agents/skills/drayl-check/scripts/drayl_check.py`.
+that is `.agents/skills/drayl-check/scripts/drayl_check.py`. Use `python`
+or `python3`, whichever is Python 3.9 or newer.
 
 1. Look for unfinished runs first:
 
@@ -134,6 +135,11 @@ Other runner behavior worth knowing:
    change to the product: when the runner prints `OS changed`, runs before
    the change are no baseline for this one. Say so in the record, and if
    the result flipped, find out whether the OS or the product caused it.
+   `os_version` is `Windows 11 25H2 10.0.26200.9711`, `macOS 26.6.2 (25G83)`,
+   or on Linux the distro plus kernel, `Ubuntu 24.04.5 LTS (kernel 6.8.0-45-generic)`.
+   With no `/etc/os-release` it is `Linux <kernel>`. A run recorded by 1.1.0
+   on Linux stored only `Linux <kernel>`, so the first run after 1.1.1 may
+   print `OS changed` once.
 4. Report the result exactly as the runner printed it, including the last
    completed step and the reason for INTERRUPTED. Do not soften it.
 5. A FAIL gets an issue before the round is reported done. If the `Drayl`

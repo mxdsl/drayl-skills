@@ -4,14 +4,21 @@ Run: python -m unittest discover -s tests -v
 """
 import json
 import os
+import signal
 import socket
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[1] / "skills" / "drayl-check" / "scripts" / "drayl_check.py"
+
+
+def platform_release():
+    import platform
+    return platform.release()
 
 
 def child(code: str):
@@ -223,8 +230,87 @@ class DraylCheckTest(unittest.TestCase):
             self.assertRegex(v, r"^macOS \d+\.\d+(\.\d+)? \(\w+\)$")
         elif os.name == "nt":
             self.assertRegex(v, r"^Windows .*\d+\.\d+\.\d+(\.\d+)?$")
+        elif sys.platform.startswith("linux"):
+            kernel = platform_release()
+            if Path("/etc/os-release").is_file():
+                self.assertIn("(kernel %s)" % kernel, v)
+                self.assertFalse(v.startswith("Linux "))
+            else:
+                self.assertEqual(v, "Linux %s" % kernel)
         self.assertIsNone(s["os_changed_from"])
         self.assertNotIn("OS changed", p.stdout)
+
+    def test_linux_os_version_uses_distro_and_kernel(self):
+        mod = load_module()
+        text = 'NAME="Debian GNU/Linux"\nVERSION="12 (bookworm)"\nPRETTY_NAME="Debian GNU/Linux 12 (bookworm)"\n'
+        self.assertEqual(mod.linux_os_version("6.1.0-18-amd64", text),
+                         "Debian GNU/Linux 12 (bookworm) (kernel 6.1.0-18-amd64)")
+        name_only = "NAME=Alpine\nVERSION_ID=3.20\n"
+        self.assertEqual(mod.linux_os_version("6.6.0", name_only), "Alpine (kernel 6.6.0)")
+        named = 'NAME="Alpine Linux"\nVERSION="3.20.0"\n'
+        self.assertEqual(mod.linux_os_version("6.6.0", named), "Alpine Linux 3.20.0 (kernel 6.6.0)")
+        self.assertEqual(mod.linux_os_version("6.6.0", ""), "Linux 6.6.0")
+
+    def test_nonzero_exit_after_every_step_is_interrupted(self):
+        p, s = self.run_check("fullbad", 1, "print('DRAYL-STEP PASS a'); raise SystemExit(4)")
+        self.assertEqual(p.returncode, 3)
+        self.assertEqual(s["result"], "INTERRUPTED")
+        self.assertIn("reported every step but exited 4", s["reason"])
+
+    def test_negative_timeout_is_usage_error(self):
+        p = subprocess.run([sys.executable, str(SCRIPT), "run", "--name", "neg", "--steps", "1",
+                            "--timeout", "-5", "--abort-key", "none", "--state-dir", str(self.state),
+                            "--"] + child("print('DRAYL-STEP PASS a')"),
+                           capture_output=True, text=True, timeout=30)
+        self.assertEqual(p.returncode, 2)
+        self.assertIn("--timeout", p.stderr)
+        self.assertFalse((self.state / "runs" / "neg.json").exists())
+
+    def test_sigint_writes_interrupted_before_returning(self):
+        if os.name == "nt":
+            self.skipTest("console Ctrl+C delivery differs on Windows")
+        proc = subprocess.Popen(
+            [sys.executable, str(SCRIPT), "run", "--name", "sig", "--steps", "2", "--abort-key", "none",
+             "--build", "test", "--state-dir", str(self.state), "--"] + child(
+                 "import time; print('DRAYL-STEP PASS a', flush=True); time.sleep(30)"),
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        state_path = self.state / "runs" / "sig.json"
+        seen = False
+        for _ in range(100):
+            if state_path.exists():
+                try:
+                    cur = json.loads(state_path.read_text(encoding="utf-8"))
+                except ValueError:
+                    cur = None
+                if cur and cur.get("last_completed_step"):
+                    seen = True
+                    break
+            time.sleep(0.05)
+        if not seen:
+            proc.kill()
+            self.fail("runner did not record a step before the signal")
+        proc.send_signal(signal.SIGINT)
+        out, err = proc.communicate(timeout=30)
+        self.assertEqual(proc.returncode, 3, out + err)
+        s = json.loads(state_path.read_text(encoding="utf-8"))
+        self.assertEqual(s["result"], "INTERRUPTED")
+        self.assertEqual(s["reason"], "Ctrl+C")
+        self.assertIn("DRAYL RESULT INTERRUPTED", out)
+
+    def test_concurrent_runs_keep_history_lines_intact(self):
+        procs = []
+        for name in ("c1", "c2", "c3"):
+            procs.append(subprocess.Popen(
+                [sys.executable, str(SCRIPT), "run", "--name", name, "--steps", "1", "--abort-key", "none",
+                 "--build", "test", "--state-dir", str(self.state), "--"] + child("print('DRAYL-STEP PASS a')"),
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True))
+        for proc in procs:
+            out, err = proc.communicate(timeout=30)
+            self.assertEqual(proc.returncode, 0, out + err)
+        lines = (self.state / "history.jsonl").read_text(encoding="utf-8").splitlines()
+        self.assertEqual(len(lines), 3)
+        names = sorted(json.loads(line)["name"] for line in lines)
+        self.assertEqual(names, ["c1", "c2", "c3"])
 
     def _seed_history(self, name, result, os_version, host=None):
         self.state.mkdir(parents=True, exist_ok=True)

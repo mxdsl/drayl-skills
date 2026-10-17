@@ -61,10 +61,57 @@ def read_json(path: Path):
         return None
 
 
+def _lock_exclusive(f) -> None:
+    """Block until this process holds an exclusive lock on an open file."""
+    if os.name == "nt":
+        import msvcrt
+        f.seek(0, os.SEEK_END)
+        if f.tell() == 0:
+            # msvcrt locks a byte range; an empty file has nothing to lock.
+            f.write(b"\0")
+            f.flush()
+        f.seek(0)
+        msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1)
+    else:
+        import fcntl
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+
+
+def _unlock(f) -> None:
+    if os.name == "nt":
+        import msvcrt
+        f.seek(0)
+        try:
+            msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+        except OSError:
+            pass
+    else:
+        import fcntl
+        fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+
+
+def _with_history_lock(state_dir: Path, fn):
+    """One lock for history.jsonl. Different check names may finish together,
+    and a torn line would hide the OS version the next run compares against."""
+    state_dir.mkdir(parents=True, exist_ok=True)
+    with open(state_dir / "history.lock", "a+b") as lockf:
+        _lock_exclusive(lockf)
+        try:
+            return fn()
+        finally:
+            _unlock(lockf)
+
+
 def append_history(state_dir: Path, data: dict) -> None:
-    hist = state_dir / "history.jsonl"
-    with open(hist, "a", encoding="utf-8") as f:
-        f.write(json.dumps(data, ensure_ascii=False) + "\n")
+    line = (json.dumps(data, ensure_ascii=False) + "\n").encode("utf-8")
+
+    def write() -> None:
+        with open(state_dir / "history.jsonl", "ab") as f:
+            f.write(line)
+            f.flush()
+            os.fsync(f.fileno())
+
+    _with_history_lock(state_dir, write)
 
 
 def git_build() -> str:
@@ -87,11 +134,46 @@ def _sw_vers(flag: str) -> str:
         return ""
 
 
+def _read_os_release() -> str:
+    try:
+        return Path("/etc/os-release").read_text(encoding="utf-8")
+    except OSError:
+        return ""
+
+
+def _os_release_fields(text: str) -> dict:
+    info = {}
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, val = line.split("=", 1)
+        val = val.strip()
+        if len(val) >= 2 and val[0] == val[-1] and val[0] in "\"'":
+            val = val[1:-1]
+        info[key] = val
+    return info
+
+
+def linux_os_version(kernel: str, os_release_text: str) -> str:
+    """Distro identity plus kernel. A distro upgrade and a kernel upgrade
+    can each flip a live check, so both belong in the compared string."""
+    info = _os_release_fields(os_release_text)
+    pretty = info.get("PRETTY_NAME") or ""
+    if not pretty:
+        pretty = " ".join(p for p in (info.get("NAME"), info.get("VERSION")) if p)
+    if pretty:
+        return "%s (kernel %s)" % (pretty, kernel)
+    return "Linux %s" % kernel
+
+
 def os_version() -> str:
     """Exact OS version with build number. An OS update can change a live
     check's result without any change to the product, so runs on different
     OS builds are not compared as before/after."""
     system = platform.system()
+    if system == "Linux":
+        return linux_os_version(platform.release(), _read_os_release())
     if system == "Darwin":
         # platform.mac_ver() reports 10.16 for Pythons built against old SDKs.
         ver = _sw_vers("-productVersion") or platform.mac_ver()[0] or platform.release()
@@ -129,22 +211,29 @@ def os_version() -> str:
 def last_comparable_run(state_dir: Path, name: str, host: str):
     """The latest PASS or FAIL run of this check on this host that recorded
     an exact OS version. INTERRUPTED runs are never a baseline."""
-    last = None
-    try:
-        # Binary mode: a line cut off inside a multibyte character (an append
-        # interrupted by a crash) must be skipped, not abort the run.
-        with open(state_dir / "history.jsonl", "rb") as f:
-            for raw in f:
-                try:
-                    d = json.loads(raw.decode("utf-8"))
-                except ValueError:  # includes UnicodeDecodeError
-                    continue
-                if (isinstance(d, dict) and d.get("name") == name and d.get("host") == host
-                        and d.get("result") in (PASS, FAIL) and d.get("os_version")):
-                    last = d
-    except OSError:
+    hist = state_dir / "history.jsonl"
+    if not hist.exists():
         return None
-    return last
+
+    def read():
+        last = None
+        try:
+            # Binary mode: a line cut off inside a multibyte character (an append
+            # interrupted by a crash) must be skipped, not abort the run.
+            with open(hist, "rb") as f:
+                for raw in f:
+                    try:
+                        d = json.loads(raw.decode("utf-8"))
+                    except ValueError:  # includes UnicodeDecodeError
+                        continue
+                    if (isinstance(d, dict) and d.get("name") == name and d.get("host") == host
+                            and d.get("result") in (PASS, FAIL) and d.get("os_version")):
+                        last = d
+        except OSError:
+            return None
+        return last
+
+    return _with_history_lock(state_dir, read)
 
 
 def last_step_text(state: dict) -> str:
@@ -746,30 +835,35 @@ def _run_locked(args, state_dir: Path) -> int:
             rt.join(2)
             tree.kill()
         rt.join(5)
-    finally:
-        signal.signal(signal.SIGINT, prev_sigint)
-    watcher.stop()
 
-    with lock:
-        ctl["final"] = True
-        trip = ctl["trip"]
-        steps = list(state["steps"])
-    code = proc.returncode
-    fails = [s for s in steps if s["result"] == FAIL]
-    if fails:
-        # A failed step is a verdict about the product; a later interruption
-        # does not undo it.
-        reason = 'step %d "%s" failed' % (fails[0]["index"], fails[0]["label"])
+        with lock:
+            ctl["final"] = True
+            trip = ctl["trip"]
+            steps = list(state["steps"])
+        code = proc.returncode
+        fails = [s for s in steps if s["result"] == FAIL]
+        if fails:
+            # A failed step is a verdict about the product; a later interruption
+            # does not undo it.
+            reason = 'step %d "%s" failed' % (fails[0]["index"], fails[0]["label"])
+            if trip:
+                reason += " (run then interrupted: %s)" % trip
+            return finish(FAIL, reason, code)
         if trip:
-            reason += " (run then interrupted: %s)" % trip
-        return finish(FAIL, reason, code)
-    if trip:
-        return finish(INTERRUPTED, trip, code)
-    if code == 0 and len(steps) == args.steps:
-        return finish(PASS, None, code)
-    if len(steps) > args.steps:
-        return finish(INTERRUPTED, "check reported %d steps, %d declared" % (len(steps), args.steps), code)
-    return finish(INTERRUPTED, "check ended after %d of %d steps (exit code %s)" % (len(steps), args.steps, code), code)
+            return finish(INTERRUPTED, trip, code)
+        if code == 0 and len(steps) == args.steps:
+            return finish(PASS, None, code)
+        if len(steps) > args.steps:
+            return finish(INTERRUPTED, "check reported %d steps, %d declared" % (len(steps), args.steps), code)
+        if len(steps) == args.steps:
+            return finish(INTERRUPTED, "check reported every step but exited %s" % code, code)
+        return finish(INTERRUPTED, "check ended after %d of %d steps (exit code %s)" % (len(steps), args.steps, code), code)
+    finally:
+        # Stop the watcher and restore SIGINT only after the verdict is on
+        # disk. The default handler would turn a second Ctrl+C into an
+        # uncaught KeyboardInterrupt and leave the run RUNNING.
+        watcher.stop()
+        signal.signal(signal.SIGINT, prev_sigint)
 
 
 def cmd_status(args) -> int:
@@ -811,7 +905,7 @@ def main(argv=None) -> int:
                    help="any physical key, click, wheel or mouse movement interrupts the run (checks that drive synthetic input)")
     r.add_argument("--abort-key", default="esc", choices=["esc", "f12", "none"],
                    help="physical key that interrupts the run (default esc)")
-    r.add_argument("--timeout", type=int, default=0, help="seconds until the run counts as INTERRUPTED (0 = none)")
+    r.add_argument("--timeout", type=int, default=0, help="seconds until the run counts as INTERRUPTED (0 = none, negative is an error)")
     r.add_argument("--build", help="build or commit under test (default: git rev-parse --short HEAD)")
     r.add_argument("--state-dir", default=".drayl", help="where run state lives (default .drayl)")
     r.add_argument("command", nargs=argparse.REMAINDER)
@@ -825,6 +919,8 @@ def main(argv=None) -> int:
             args.command = args.command[1:]
         if args.steps < 1:
             ap.error("--steps must be at least 1")
+        if args.timeout < 0:
+            ap.error("--timeout must be 0 or greater")
         return cmd_run(args)
     return cmd_status(args)
 
