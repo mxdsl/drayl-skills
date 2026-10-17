@@ -52,6 +52,7 @@ def windows_driver():
 
 def mac_driver():
     cg = ctypes.CDLL(ctypes.util.find_library("ApplicationServices"))
+    cf = ctypes.CDLL(ctypes.util.find_library("CoreFoundation"))
 
     class P(ctypes.Structure):
         _fields_ = [("x", ctypes.c_double), ("y", ctypes.c_double)]
@@ -64,40 +65,76 @@ def mac_driver():
     cg.CGEventCreateMouseEvent.argtypes = [ctypes.c_void_p, ctypes.c_uint32, P, ctypes.c_uint32]
     cg.CGEventCreateKeyboardEvent.restype = ctypes.c_void_p
     cg.CGEventCreateKeyboardEvent.argtypes = [ctypes.c_void_p, ctypes.c_uint16, ctypes.c_bool]
+    cg.CGEventSourceCreate.restype = ctypes.c_void_p
+    cg.CGEventSourceCreate.argtypes = [ctypes.c_int32]
     cg.CGEventPost.argtypes = [ctypes.c_uint32, ctypes.c_void_p]
+    cf.CFRelease.argtypes = [ctypes.c_void_p]
+    cf.CFRelease.restype = None
+    # kCGEventSourceStateCombinedSessionState. NULL (the previous source
+    # argument) posts into this same state; the created source is released
+    # when the driver is closed.
+    source = cg.CGEventSourceCreate(0)
+
+    def release(ref):
+        if ref:
+            cf.CFRelease(ref)
 
     def move(dx):
-        loc = cg.CGEventGetLocation(cg.CGEventCreate(None))
-        cg.CGEventPost(0, cg.CGEventCreateMouseEvent(None, 5, P(loc.x + dx, loc.y), 0))
+        probe = cg.CGEventCreate(source)
+        try:
+            if not probe:
+                return
+            loc = cg.CGEventGetLocation(probe)
+            event = cg.CGEventCreateMouseEvent(source, 5, P(loc.x + dx, loc.y), 0)
+            try:
+                if event:
+                    cg.CGEventPost(0, event)
+            finally:
+                release(event)
+        finally:
+            release(probe)
 
     def shift():
         for down in (True, False):
-            cg.CGEventPost(0, cg.CGEventCreateKeyboardEvent(None, 56, down))
+            event = cg.CGEventCreateKeyboardEvent(source, 56, down)
+            try:
+                if event:
+                    cg.CGEventPost(0, event)
+            finally:
+                release(event)
 
-    return move, shift
+    def close():
+        release(source)
+
+    return move, shift, close
 
 
 def main():
     system = platform.system()
+    close = None
     if system == "Windows":
         move, shift = windows_driver()
     elif system == "Darwin":
-        move, shift = mac_driver()
+        move, shift, close = mac_driver()
     else:
         print("synthetic_input_check: hands-off synthetic input is Windows and macOS only (this is %s)" % system,
               file=sys.stderr)
         return 2
-    for step in ("mouse jiggle", "shift presses", "mixed"):
-        end = time.time() + SECONDS_PER_STEP
-        dx = 1
-        while time.time() < end:
-            if step != "shift presses":
-                move(dx)
-                dx = -dx
-            if step != "mouse jiggle":
-                shift()
-            time.sleep(0.05)
-        print("DRAYL-STEP PASS %s" % step, flush=True)
+    try:
+        for step in ("mouse jiggle", "shift presses", "mixed"):
+            end = time.time() + SECONDS_PER_STEP
+            dx = 1
+            while time.time() < end:
+                if step != "shift presses":
+                    move(dx)
+                    dx = -dx
+                if step != "mouse jiggle":
+                    shift()
+                time.sleep(0.05)
+            print("DRAYL-STEP PASS %s" % step, flush=True)
+    finally:
+        if close:
+            close()
     return 0
 
 
