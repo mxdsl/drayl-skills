@@ -215,6 +215,54 @@ class DraylCheckTest(unittest.TestCase):
         hist = [json.loads(x) for x in (self.state / "history.jsonl").read_text(encoding="utf-8").splitlines()]
         self.assertEqual([h["result"] for h in hist], ["PASS", "INTERRUPTED"])
 
+    def test_os_version_is_exact(self):
+        p, s = self.run_check("osv", 1, "print('DRAYL-STEP PASS a')")
+        v = s["os_version"]
+        self.assertRegex(v, r"\d+\.\d+")
+        if sys.platform == "darwin":
+            self.assertRegex(v, r"^macOS \d+\.\d+(\.\d+)? \(\w+\)$")
+        elif os.name == "nt":
+            self.assertRegex(v, r"^Windows .*\d+\.\d+\.\d+(\.\d+)?$")
+        self.assertIsNone(s["os_changed_from"])
+        self.assertNotIn("OS changed", p.stdout)
+
+    def _seed_history(self, name, result, os_version, host=None):
+        self.state.mkdir(parents=True, exist_ok=True)
+        entry = {"name": name, "result": result, "host": host or socket.gethostname()}
+        if os_version is not None:
+            entry["os_version"] = os_version
+        with open(self.state / "history.jsonl", "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
+
+    def test_os_change_since_last_comparable_run_is_reported(self):
+        self._seed_history("upd", "PASS", "Test OS 1.0 (A1)")
+        p, s = self.run_check("upd", 1, "print('DRAYL-STEP PASS a')")
+        self.assertEqual(s["os_changed_from"], "Test OS 1.0 (A1)")
+        self.assertIn("DRAYL note: OS changed since the last PASS/FAIL run of upd", p.stdout)
+        st = subprocess.run([sys.executable, str(SCRIPT), "status", "--name", "upd", "--state-dir", str(self.state)],
+                            capture_output=True, text=True, timeout=30)
+        self.assertIn("OS changed: Test OS 1.0 (A1) ->", st.stdout)
+        # The run just recorded the current OS; the next one compares against it.
+        p2, s2 = self.run_check("upd", 1, "print('DRAYL-STEP PASS a')")
+        self.assertIsNone(s2["os_changed_from"])
+        self.assertNotIn("OS changed", p2.stdout)
+
+    def test_os_change_ignores_interrupted_other_host_and_old_records(self):
+        self._seed_history("ign", "INTERRUPTED", "Test OS 1.0 (A1)")
+        self._seed_history("ign", "PASS", "Test OS 1.0 (A1)", host="some-other-host")
+        self._seed_history("ign", "FAIL", None)
+        p, s = self.run_check("ign", 1, "print('DRAYL-STEP PASS a')")
+        self.assertIsNone(s["os_changed_from"])
+        self.assertNotIn("OS changed", p.stdout)
+
+    def test_truncated_history_line_does_not_block_runs(self):
+        self._seed_history("cut", "PASS", "Test OS 1.0 (A1)")
+        with open(self.state / "history.jsonl", "ab") as f:
+            f.write('{"name": "cut", "os_version": "Ä'.encode("utf-8")[:-1] + b"\n[1]\n")
+        p, s = self.run_check("cut", 1, "print('DRAYL-STEP PASS a')")
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertEqual(s["os_changed_from"], "Test OS 1.0 (A1)")
+
     def test_child_gets_run_env(self):
         p, s = self.run_check("env", 1, "import os; print('DRAYL-STEP PASS ' + os.environ['DRAYL_RUN_NAME'])")
         self.assertEqual(s["steps"][0]["label"], "env")

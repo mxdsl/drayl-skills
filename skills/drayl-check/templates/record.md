@@ -2,7 +2,7 @@
 
 - **Result:** PASS | FAIL | INTERRUPTED (after step n/N "<label>": <reason>)
 - **Build:** <commit or version on every device>
-- **Devices:** <device, OS and version for each>
+- **Devices:** <device and exact OS version with build for each, as in `os_version`; "OS changed since last run: A -> B" if the runner said so>
 - **Setup:** <what was running, configuration, network, anything non-default>
 - **Command:**
 

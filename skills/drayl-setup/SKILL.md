@@ -4,7 +4,7 @@ description: Set up or update the Drayl workflow (drayl-pr and drayl-check) for 
 license: MIT
 metadata:
   pack: drayl
-  version: 1.0.0
+  version: 1.1.0
 ---
 
 # Drayl setup: an interview, then one reviewed write

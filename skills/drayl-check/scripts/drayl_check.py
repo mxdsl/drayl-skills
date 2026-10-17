@@ -79,6 +79,74 @@ def git_build() -> str:
         return "unknown"
 
 
+def _sw_vers(flag: str) -> str:
+    try:
+        out = subprocess.run(["sw_vers", flag], capture_output=True, text=True, timeout=5)
+        return out.stdout.strip() if out.returncode == 0 else ""
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def os_version() -> str:
+    """Exact OS version with build number. An OS update can change a live
+    check's result without any change to the product, so runs on different
+    OS builds are not compared as before/after."""
+    system = platform.system()
+    if system == "Darwin":
+        # platform.mac_ver() reports 10.16 for Pythons built against old SDKs.
+        ver = _sw_vers("-productVersion") or platform.mac_ver()[0] or platform.release()
+        build = _sw_vers("-buildVersion")
+        return "macOS %s (%s)" % (ver, build) if build else "macOS %s" % ver
+    if system == "Windows":
+        version = platform.version()  # 10.0.26200
+        reg = {}
+        try:
+            import winreg
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows NT\CurrentVersion") as k:
+                for value in ("UBR", "DisplayVersion", "InstallationType"):
+                    try:
+                        reg[value] = winreg.QueryValueEx(k, value)[0]
+                    except OSError:
+                        pass
+        except OSError:
+            pass
+        parts = version.split(".")
+        build = int(parts[2]) if len(parts) >= 3 and parts[2].isdigit() else 0
+        if str(reg.get("InstallationType", "")).startswith("Server"):  # Server, Server Core
+            product = "Windows Server"
+        elif parts[:1] == ["10"] and build >= 22000:
+            # Windows 11 still reports major version 10; the build tells them apart.
+            product = "Windows 11"
+        else:
+            product = "Windows %s" % platform.release()
+        full = version + (".%d" % reg["UBR"] if isinstance(reg.get("UBR"), int) else "")
+        display = reg.get("DisplayVersion")
+        display = display if isinstance(display, str) else ""
+        return " ".join(p for p in (product, display, full) if p)
+    return "%s %s" % (system, platform.release())
+
+
+def last_comparable_run(state_dir: Path, name: str, host: str):
+    """The latest PASS or FAIL run of this check on this host that recorded
+    an exact OS version. INTERRUPTED runs are never a baseline."""
+    last = None
+    try:
+        # Binary mode: a line cut off inside a multibyte character (an append
+        # interrupted by a crash) must be skipped, not abort the run.
+        with open(state_dir / "history.jsonl", "rb") as f:
+            for raw in f:
+                try:
+                    d = json.loads(raw.decode("utf-8"))
+                except ValueError:  # includes UnicodeDecodeError
+                    continue
+                if (isinstance(d, dict) and d.get("name") == name and d.get("host") == host
+                        and d.get("result") in (PASS, FAIL) and d.get("os_version")):
+                    last = d
+    except OSError:
+        return None
+    return last
+
+
 def last_step_text(state: dict) -> str:
     last = state.get("last_completed_step")
     total = state.get("steps_expected")
@@ -585,6 +653,8 @@ def _run_locked(args, state_dir: Path) -> int:
         "host": socket.gethostname(),
         "runner_pid": os.getpid(),
         "os": "%s %s" % (platform.system(), platform.release()),
+        "os_version": os_version(),
+        "os_changed_from": None,
         "hands_off": args.hands_off,
         "abort_key": args.abort_key if watching else "ctrl+c only",
         "timeout_s": args.timeout,
@@ -597,6 +667,12 @@ def _run_locked(args, state_dir: Path) -> int:
         "updated": now_iso(),
         "ended": None,
     }
+    prior = last_comparable_run(state_dir, args.name, state["host"])
+    if prior and prior["os_version"] != state["os_version"]:
+        state["os_changed_from"] = prior["os_version"]
+        print("DRAYL note: OS changed since the last PASS/FAIL run of %s on this host (%s -> %s); "
+              "do not compare this run with runs before the change"
+              % (args.name, prior["os_version"], state["os_version"]), flush=True)
     write_json(path, state)
 
     def finish(result, reason, code) -> int:
@@ -717,6 +793,8 @@ def cmd_status(args) -> int:
             line += " %s: %s" % (last_step_text(state), state.get("reason"))
         elif state["result"] == FAIL:
             line += " %s" % state.get("reason")
+        if state.get("os_changed_from"):
+            line += " [OS changed: %s -> %s]" % (state["os_changed_from"], state.get("os_version"))
         print(line)
     if not shown and not args.json:
         print("no runs in %s" % runs)

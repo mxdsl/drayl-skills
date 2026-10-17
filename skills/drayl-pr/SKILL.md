@@ -4,7 +4,7 @@ description: Babysit your own GitHub pull request until it is genuinely done - C
 license: MIT
 metadata:
   pack: drayl
-  version: 1.0.0
+  version: 1.1.0
 ---
 
 # A PR is not done when CI turns green

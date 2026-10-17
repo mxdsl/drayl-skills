@@ -4,7 +4,7 @@ description: Run a live check (acceptance run, dogfood, benchmark, demo, anythin
 license: MIT
 metadata:
   pack: drayl
-  version: 1.0.0
+  version: 1.1.0
 ---
 
 # Live checks with one honest result
@@ -120,8 +120,12 @@ Other runner behavior worth knowing:
 2. INTERRUPTED is re-run from the start. There is no resume: the system
    under test may have changed while the run was stopped.
 3. Compare only PASS and FAIL runs of the same check, the same number of
-   steps and a known build. Never compare against an INTERRUPTED run, and
-   never use one as the "before" of a before/after.
+   steps, a known build and the same OS version (`os_version` in the
+   state). Never compare against an INTERRUPTED run, and never use one as
+   the "before" of a before/after. An OS update can flip a result with no
+   change to the product: when the runner prints `OS changed`, runs before
+   the change are no baseline for this one. Say so in the record, and if
+   the result flipped, find out whether the OS or the product caused it.
 4. Report the result exactly as the runner printed it, including the last
    completed step and the reason for INTERRUPTED. Do not soften it.
 5. A FAIL gets an issue before the round is reported done.

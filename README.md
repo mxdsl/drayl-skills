@@ -36,6 +36,13 @@ runner saves the state after every step, so an interrupted run always
 names its last completed step. If the runner itself is killed, the next
 `status` reports that run as INTERRUPTED instead of forgetting it.
 
+Each run records the exact OS version with build (for example
+`Windows 11 25H2 10.0.26200.9711` or `macOS 26.6.2 (25G83)`). An OS
+update can flip a check without any change to your code, so when the OS
+changed since the last PASS or FAIL run of the same check on that machine,
+the runner says so and the older runs stop counting as a baseline. Drayl
+does not pin the OS: your users get the updates too.
+
 ```bash
 python skills/drayl-check/scripts/drayl_check.py run --name resize --steps 5 --hands-off -- ./check-resize.sh
 # ...
