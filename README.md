@@ -14,7 +14,7 @@ Three skills, one pack:
 | Skill | What it does |
 | --- | --- |
 | `drayl-setup` | Interviews you (at most eight questions, each with a recommended answer), detects the rest, shows what it will write, then writes a `Drayl` section into `AGENTS.md` and installs the skills |
-| `drayl-pr` | Babysits a GitHub PR until CI is green on the latest head, every review on that head finished, and every finding is fixed or answered. Lands it only if your merge policy allows. No review bot? A fresh subagent reviews instead |
+| `drayl-pr` | Babysits a GitHub PR until CI is green on the latest head, every review on that head finished, and every finding is fixed or answered. Lands it only if your merge policy allows. No review bot? A fresh subagent or a separate agent run reviews instead, or a person by hand |
 | `drayl-check` | Runs live checks (acceptance runs, dogfood, benchmarks, demos with synthetic input) so each run ends with exactly one result: PASS, FAIL or INTERRUPTED, and leaves a record |
 
 Works with any agent that reads `AGENTS.md` and the open `SKILL.md`

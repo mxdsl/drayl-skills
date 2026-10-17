@@ -23,7 +23,7 @@ and `.agents/skills/drayl-check/`.
 - **Repository:** <owner/name> on GitHub, default branch `<main>`
 - **Merge:** <never - the user merges | after <name> approves the current head | automatically when done>; method `<squash|merge|rebase>`
 - **Required CI checks:** <all checks on the PR | only required checks | list: `a`, `b`>
-- **Reviewers:** <Name (check `x`, author `bot[bot]`) | fresh subagent review>
+- **Reviewers:** <Name (check `x`, author `bot[bot]`) | fresh independent review (subagent or separate agent run) | <person> by hand, comment `Drayl review (manual) on <sha>`>
 - **Review wait:** <10> minutes, then BLOCKED
 - **Stacked PRs:** <yes | no>
 - **Before every push:**

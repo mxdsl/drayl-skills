@@ -50,13 +50,20 @@ or three rounds. Every question has a recommended answer, marked, so the
 user can reply "ok" or with numbers like `1b 2a 3a`. Use your question tool
 if you have one and it works; otherwise ask in chat with numbered options.
 
+Never fill in an answer silently. Every value detection could not settle
+is either asked or listed as "recommended, change if needed" in the
+message the user approves. To save a round, you may send the questions
+together with the draft from step 4 built from the recommended answers.
+
 1. **Merge policy**: who may merge?
    a) nobody but the user (agent stops at DONE) - recommended
    b) the agent, after the user approves the current head
    c) the agent, automatically when DONE
-2. **Reviewers**: show what you detected. Use them? If none: fresh subagent
-   review (recommended) or none. Review wait before BLOCKED: 10 minutes
-   (recommended) or another value.
+2. **Reviewers**: show what you detected. Use them? If none: fresh
+   independent review by a subagent or a separate agent run (recommended,
+   see `drayl-pr`), or a person who reviews by hand. Review wait before
+   BLOCKED: 10 minutes (recommended) or another value. If your own
+   instructions forbid subagents, say so and offer the other two.
 3. **Required checks**: show the detected checks. All checks on the PR
    (recommended if branch protection is unknown), only required ones, or a
    list.
@@ -79,14 +86,19 @@ project rule, so it is visible.
 
 ## 4. Show everything before writing
 
-Fill `templates/agents-section.md` (next to this file) with the answers and
-show the user:
+Fill `templates/agents-section.md` (next to this file) with the answers
+(with live checks `no`, drop the four lines under it) and show the user:
 
 - the complete section as it will appear in `AGENTS.md`;
 - every file you will create or change (see step 5);
 - for a re-run: a diff of the old and the new section.
 
 Ask: write it? Change something? Write only after a clear yes.
+
+If no answer can come in this session (a non-interactive run such as
+`droid exec` or `codex exec` without a user), stop here: show the draft,
+say that it needs a yes, and write nothing. A request to "set up Drayl" is
+not the yes; the yes is to the shown draft.
 
 ## 5. Write
 

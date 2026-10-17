@@ -17,7 +17,7 @@ Project settings are in the `Drayl` section of `AGENTS.md`: merge policy,
 required checks, reviewers, review wait, stacked PRs, commands before
 push, report language. If the section is missing, run `drayl-setup` first.
 Without it, use the defaults: never merge, all checks required, fresh
-subagent review, 10 minutes review wait.
+independent review, 10 minutes review wait.
 
 Below, `<repo>` is `owner/name` and `<n>` is the PR number. Pass `-R <repo>`
 to every `gh pr` and `gh run` command; a local remote can point at an old
@@ -95,25 +95,41 @@ For every finding:
   its link. That reply answers the finding.
 - After a fix push, go back to step 1 with the new head.
 
-### No review bot: fresh subagent review
+### No review bot: fresh independent review
 
-When the `Drayl` section says `fresh subagent review` (or no reviewer is
-configured), run the review yourself through a **fresh** subagent once CI
-is green on the latest head:
+When the `Drayl` section says `fresh independent review` (older sections:
+`fresh subagent review`), or no reviewer is configured, get the review
+from a reviewer that has **not** seen your conversation, once CI is green
+on the latest head:
 
-1. Start a new subagent with no access to your conversation. Give it only:
-   the diff (`gh pr diff <n> -R <repo>`), the PR title and description,
-   `AGENTS.md`, and this brief: "Review this diff. Report only
+1. Start the reviewer, in this order of preference:
+   - a new subagent with no access to your conversation, if you have one
+     and your instructions allow subagents;
+   - otherwise, unless your instructions rule out other agents too, a
+     separate non-interactive agent run in read-only mode, for
+     example `codex exec --sandbox read-only -`, `droid exec`, or
+     `claude -p`, with the brief on stdin.
+
+   Give it only: the diff (`gh pr diff <n> -R <repo>`), the PR title and
+   description, `AGENTS.md`, and this brief: "Review this diff. Report only
    high-confidence bugs, security problems and broken contracts. For each:
    file:line, the problem, why it matters, a suggested fix. If there is
    nothing, say 'no findings'. Do not edit files."
-2. Post its answer as a PR comment headed `Drayl review (fresh subagent)
-   on <sha>` so the review is on record.
+2. Post its answer as a PR comment headed `Drayl review (fresh <subagent |
+   agent run: tool>) on <sha>` so the review is on record.
 3. Treat its findings exactly like bot findings above.
 
-If your agent cannot start a subagent, say so in the report and mark the
-review as `self-review, not independent`. That is not a passed review gate:
-report BLOCKED unless the user accepts it.
+If neither works, say so in the report and mark the review as
+`self-review, not independent`. That is not a passed review gate: report
+BLOCKED unless the user accepts it.
+
+### A person reviews by hand
+
+When the `Drayl` section names a person, their review is a PR review or
+a PR comment starting with `Drayl review (manual) on <sha>` for the latest
+head. Ask for it in your report, wait the review wait, then report
+**BLOCKED: waiting for <person>'s review on <sha>**. When you continue, read
+their findings like any other. A review on an older head does not count.
 
 ## 3. Before every push
 
