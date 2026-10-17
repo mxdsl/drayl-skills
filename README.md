@@ -9,6 +9,49 @@ interrupted halfway and the half-run is reported as a pass. Drayl gives
 every agent in a repository the same, strict definition of done, and an
 interview that adapts it to the project.
 
+## What you get
+
+Drayl does not make your agent write better code. It stops the agent from
+saying "done" before the work is done, and from turning a half-finished
+test into a pass.
+
+| Without Drayl | With Drayl |
+| --- | --- |
+| CI turns green and the agent reports "done" while the review bot is still running or has already posted findings | Done means CI green on the **latest** commit, every review on that commit finished, every finding fixed or answered. No review after the wait: the agent reports BLOCKED, not done |
+| The agent reads one place and misses findings | It reads all three places on GitHub: inline comments, review bodies, PR comments. No finding is skipped silently |
+| No review bot means no review | A fresh subagent or a separate agent run reviews instead, or a person by hand. A self-review never counts |
+| The agent merges too early, merges code it never checked, or tangles stacked PRs | It merges only if your policy allows, with a head guard (the merge fails if the PR changed after the check), lands stacked PRs in order, and confirms the change is really on the default branch |
+| A live test is cut short by a timeout, a crash or someone touching the mouse, and the agent reports "works" | Every run ends with exactly one result: PASS, FAIL or INTERRUPTED. INTERRUPTED is never a pass and never a baseline, and the last completed step is saved |
+| A test fails and the agent quietly changes the expectation | A FAIL stays a FAIL, gets a record and an issue |
+| An OS update flips a test and nobody notices | Every run records the exact OS version with build and warns when it changed |
+
+The rules land in your `AGENTS.md`, so every agent in the repository sees
+them, even when no skill is loaded.
+
+What the trial runs showed (Droid and Codex on throwaway repositories):
+Codex refused to merge while the configured review was missing and
+reported BLOCKED, fixed the review finding, answered it in the PR, and
+merged only after approval of exactly that commit. Droid landed two
+stacked PRs in the right order. Given a deliberately wrong expectation in
+a live check, Droid recorded FAIL and opened an issue instead of changing
+the code to match.
+
+What Drayl does not do:
+
+- It does not improve the code itself. It improves when the agent may
+  say "done" and how honestly it reports results.
+- It is instructions, not enforcement. An agent can still ignore them;
+  report it and tighten the section.
+- It costs waiting time: the agent waits for reviews instead of reporting
+  early.
+- GitHub with the `gh` CLI only. Real-input detection for hands-off runs
+  on Windows and macOS only.
+- It pays off when agents open, babysit or merge PRs, or run live checks.
+  If you only let the agent write code and you merge yourself, you gain
+  little.
+
+## The skills
+
 Three skills, one pack:
 
 | Skill | What it does |
