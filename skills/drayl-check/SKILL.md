@@ -14,16 +14,24 @@ network, a measurement. These runs get interrupted - someone touches the
 mouse, presses a key, a connection drops, the laptop sleeps. An unfinished
 run must never turn into a pass, and never into a regression.
 
-Project settings (records folder, evidence folder, abort key) are in the
-`Drayl` section of `AGENTS.md`. If that section is missing, run the
-`drayl-setup` skill first or use the defaults below.
+Project settings (records folder, evidence folder, abort key, whether you
+may open issues) are in the `Drayl` section of `AGENTS.md`. If that
+section is missing, use these defaults and suggest running `drayl-setup`
+in your report; do not run it unasked:
+
+- records folder: `docs/records/`
+- raw evidence folder (outside the repo): `~/drayl-evidence/`
+- abort key: `esc`
+- new issues: ask first (show the title and text, open it after a yes)
+
+A setting that an older `Drayl` section does not list takes its default.
 
 ## The three results
 
 | Result | Meaning | What you do with it |
 | --- | --- | --- |
 | PASS | Every declared step reported PASS and the check exited 0 | Report it, write the record |
-| FAIL | At least one step reported FAIL | The product is wrong: report it, open an issue, write the record |
+| FAIL | At least one step reported FAIL | The product is wrong: report it, file an issue (rule 5), write the record |
 | INTERRUPTED | The run did not finish: abort key, physical input during a hands-off run, Ctrl+C, timeout, crash, lost connection, missing steps | The measurement is invalid. Re-run it. Never count it as a pass, a fail, a regression or a baseline |
 
 FAIL is a statement about the product. INTERRUPTED is a statement about the
@@ -128,7 +136,10 @@ Other runner behavior worth knowing:
    the result flipped, find out whether the OS or the product caused it.
 4. Report the result exactly as the runner printed it, including the last
    completed step and the reason for INTERRUPTED. Do not soften it.
-5. A FAIL gets an issue before the round is reported done.
+5. A FAIL gets an issue before the round is reported done. If the `Drayl`
+   section says new issues need asking (the default), show the issue
+   title and text and open it only after a yes; if the user declines,
+   the record says so instead of linking an issue.
 6. Do not touch the machine during a hands-off run. If you are the agent
    and the user is at the machine, tell them before you start and how long
    it takes.
@@ -138,11 +149,14 @@ Other runner behavior worth knowing:
 Each PASS or FAIL that someone will rely on gets a record, and so does an
 INTERRUPTED run if it is reported. Use `templates/record.md` next to this
 file and put it where the `Drayl` section says (default
-`docs/records/<date>-<check>.md`). A record states: date, build on every
+`docs/records/<date>-<check>.md`). Copy the run's state file
+`.drayl/runs/<name>.json` into the evidence folder, because the next run
+with the same name overwrites it. A record states: date, build on every
 device, devices and OS versions, setup, the exact command, the numbers
 with n, the result, everything that did not match, and honest limits.
 
 Raw evidence (logs, screenshots, videos, state JSON) stays outside the
-repo in the evidence folder from the `Drayl` section, with a short README.
+repo in the evidence folder from the `Drayl` section (default
+`~/drayl-evidence/<check>-<date>-<build>/`), with a short README.
 Never store clipboard contents, personal data, tokens or keys there, and
 check screenshots and videos for private content before sharing them.

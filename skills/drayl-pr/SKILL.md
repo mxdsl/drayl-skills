@@ -15,9 +15,20 @@ that pushed the PR babysits it to the end.
 
 Project settings are in the `Drayl` section of `AGENTS.md`: merge policy,
 required checks, reviewers, review wait, stacked PRs, commands before
-push, report language. If the section is missing, run `drayl-setup` first.
-Without it, use the defaults: never merge, all checks required, fresh
-independent review, 10 minutes review wait.
+push, what you may post on GitHub without asking, report language. If the
+section is missing, work with these defaults and suggest running
+`drayl-setup` in your report; do not run it unasked:
+
+- merge: never, the user merges
+- required checks: all checks on the PR
+- reviewers: any review bot that runs on the PR; if none, fresh
+  independent review (below)
+- review wait: 10 minutes, then BLOCKED
+- PR comments and thread replies: ask first (show the text, post after a
+  yes)
+- new issues: ask first
+
+A setting that an older `Drayl` section does not list takes its default.
 
 Below, `<repo>` is `owner/name` and `<n>` is the PR number. Pass `-R <repo>`
 to every `gh pr` and `gh run` command; a local remote can point at an old
@@ -94,6 +105,12 @@ For every finding:
 - A valid finding outside this PR's scope: open an issue and reply with
   its link. That reply answers the finding.
 - After a fix push, go back to step 1 with the new head.
+
+Posting on GitHub follows the `Drayl` section. Where it says "ask first"
+(the default without a section) for PR comments or new issues, collect
+the replies, review comments and issues you want to post, show them to
+the user in one message, and post them after a yes. Until then the
+findings count as unanswered and the PR is not done.
 
 ### No review bot: fresh independent review
 

@@ -33,6 +33,7 @@ and `.agents/skills/drayl-check/`.
   - Abort key: <esc>; hands-off for checks that drive synthetic input: <yes | no>
   - Records: `<docs/records/>`
   - Raw evidence (outside the repo): `<~/drayl-evidence/>`
+- **Posting on GitHub:** PR comments and thread replies: <without asking | ask first>; new issues: <without asking | ask first>
 - **Reports:** <language>, <short | detailed>
 
 ### Project exceptions

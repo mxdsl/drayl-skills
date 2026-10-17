@@ -10,7 +10,7 @@
   python .agents/skills/drayl-check/scripts/drayl_check.py run --name <name> --steps <N> ... -- <command>
   ```
 
-- **Runner state:** `<evidence folder>/<name>.json` (input_seen: synthetic <n>, physical <n>)
+- **Runner state:** written to `.drayl/runs/<name>.json`, copied to `<evidence folder>/<name>.json` (input_seen: synthetic <n>, physical <n>)
 
 ## Numbers
 

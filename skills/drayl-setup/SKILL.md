@@ -41,7 +41,8 @@ Find out yourself, read-only:
 | Python 3.9+ | `python3 --version` or `python --version` (or `py -3` on Windows); needed by `drayl_check.py` |
 
 If something cannot be detected, it becomes a question or a stated default.
-If `gh` is missing or not logged in, say so: `drayl-pr` needs it.
+If `gh` is missing, older than 2.50 (`gh --version`; older versions lack
+`gh pr checks --json`) or not logged in, say so: `drayl-pr` needs it.
 
 ## 3. The interview
 
@@ -77,12 +78,32 @@ together with the draft from step 4 built from the recommended answers.
 7. **Records and evidence** (only if 6 is yes): records folder in the repo
    (recommended `docs/records/`) and raw evidence folder outside the repo
    (recommended `~/drayl-evidence/`).
-8. **Reports**: language and length of the agent's DONE/BLOCKED reports.
+8. **GitHub posts and reports**: may the agent post without asking
+   a) PR comments and thread replies on its own PRs (answers to review
+   findings, the fresh review) - recommended yes;
+   b) new issues (a FAIL in a live check, a finding outside the PR) -
+   recommended ask first?
+   And the language and length of the DONE/BLOCKED reports.
 
 Do not ask about the fixed rules. If the user wants to change one, explain
-why it exists (see the README section "Why these rules") and, if they
-still want it, write their exception into the section as an explicit
-project rule, so it is visible.
+why it exists and, if they still want it, write their exception into the
+section as an explicit project rule, so it is visible. Why each rule
+exists:
+
+- **Done means the latest head.** CI and reviews on an older commit say
+  nothing about the code that will land.
+- **Wait for the review, then read three places.** Review bots often
+  report "passed" while posting findings, in inline comments, review
+  bodies and top-level comments. A review that never arrives on the
+  latest head is BLOCKED, not done.
+- **Answer every finding in its thread.** A silently skipped finding looks
+  exactly like an overlooked one.
+- **Never force-push; never merge a stacked child into its parent.**
+  Force-pushes destroy reviewed history; a child merged into its parent
+  looks merged and lands nowhere.
+- **INTERRUPTED is its own result.** Without it, a half-finished live run
+  quietly becomes a pass, or a "regression" that sends someone hunting a
+  bug that does not exist.
 
 ## 4. Show everything before writing
 
@@ -123,9 +144,9 @@ not the yes; the yes is to the shown draft.
    ```
 
    Droid, Codex, Cursor and Gemini CLI read `.agents/skills/` themselves;
-   do not give them a stub, or the skill shows up twice. Of the agents in
-   the README table "Where agents look for skills", only Claude Code needs
-   one. For an agent not in that table, check its documentation first.
+   do not give them a stub, or the skill shows up twice. Claude Code does
+   not and needs the stub. For any other agent, check its documentation
+   first.
 4. `CLAUDE.md`: if Claude Code is used and `CLAUDE.md` does not import
    `AGENTS.md`, add the line `@AGENTS.md` (keep any existing content).
 5. `.gitignore`: add `.drayl/` (runner state is local).

@@ -28,13 +28,15 @@ test into a pass.
 The rules land in your `AGENTS.md`, so every agent in the repository sees
 them, even when no skill is loaded.
 
-What the trial runs showed (Droid and Codex on throwaway repositories):
-Codex refused to merge while the configured review was missing and
-reported BLOCKED, fixed the review finding, answered it in the PR, and
-merged only after approval of exactly that commit. Droid landed two
-stacked PRs in the right order. Given a deliberately wrong expectation in
-a live check, Droid recorded FAIL and opened an issue instead of changing
-the code to match.
+What one trial run showed (Droid and Codex, one throwaway repository
+each, n = 1): Codex refused to merge while the configured review was
+missing and reported BLOCKED, fixed the review finding, answered it in
+the PR, and merged only after approval of exactly that commit. Droid
+landed two stacked PRs in the right order. Given a deliberately wrong
+expectation in a live check, Droid recorded FAIL and opened an issue
+instead of changing the code to match. Both agents also broke a setup
+rule, which led to fixes. Full record with versions and limits:
+[docs/trials/2026-10-17-droid-codex.md](docs/trials/2026-10-17-droid-codex.md).
 
 What Drayl does not do:
 
@@ -60,9 +62,10 @@ Three skills, one pack:
 | `drayl-pr` | Babysits a GitHub PR until CI is green on the latest head, every review on that head finished, and every finding is fixed or answered. Lands it only if your merge policy allows. No review bot? A fresh subagent or a separate agent run reviews instead, or a person by hand |
 | `drayl-check` | Runs live checks (acceptance runs, dogfood, benchmarks, demos with synthetic input) so each run ends with exactly one result: PASS, FAIL or INTERRUPTED, and leaves a record |
 
-Works with any agent that reads `AGENTS.md` and the open `SKILL.md`
-format: Droid, Claude Code (via `CLAUDE.md` importing `AGENTS.md`), Codex,
-Cursor, Gemini CLI, Copilot and others.
+Tried end to end with Droid and Codex. It is written for any agent that
+reads `AGENTS.md` and the open `SKILL.md` format, so Claude Code (via
+`CLAUDE.md` importing `AGENTS.md`), Cursor, Gemini CLI and others should
+work too, but they have not been tried yet.
 
 ## PASS, FAIL, INTERRUPTED
 
@@ -100,6 +103,10 @@ hands-off run if it cannot watch real input. Linux is not supported for
 hands-off runs yet.
 
 ## Install
+
+Requirements: Python 3.9 or newer for the runner, and the GitHub CLI `gh`
+2.50 or newer, logged in (`gh auth status`), for `drayl-pr`. Older `gh`
+versions lack `gh pr checks --json`.
 
 1. Get the skills into your repository:
 
@@ -172,7 +179,11 @@ skills/
   drayl-check/   SKILL.md, scripts/drayl_check.py, templates/record.md
 examples/        synthetic_input_check.py (hands-off demo for Windows and macOS)
 tests/           unit tests for the runner: python -m unittest discover -s tests
+docs/trials/     records of trial runs with real agents
 ```
+
+CI runs the unit tests on Linux, Windows and macOS with Python 3.9 and
+the latest Python 3.
 
 ## License
 
